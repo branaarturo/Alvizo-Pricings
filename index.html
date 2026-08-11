@@ -47,7 +47,7 @@ h1{
   text-transform:uppercase;
   letter-spacing:1px;
 }
-.topbuttons,.brandbuttons{
+.topbuttons,.brandbuttons,.tonnagebuttons{
   display:flex;
   justify-content:center;
   gap:12px;
@@ -79,6 +79,14 @@ button.active{
   box-shadow:0 8px 18px rgba(0,87,168,.25);
 }
 .brandbuttons button{min-width:130px}
+.tonnage-section{display:none;margin-top:8px;margin-bottom:18px}
+.tonnage-section.show{display:block}
+.tonnagebuttons{gap:9px;margin-bottom:0}
+.tonnagebuttons button{min-width:82px;padding:11px 14px}
+.individual-table td:nth-child(2){font-family:Consolas,monospace;font-size:14px;text-align:left;word-break:break-word}
+.individual-table td:last-child{font-size:17px;text-align:right}
+.individual-table th:nth-child(2){text-align:left}
+.individual-summary{padding:16px 18px;background:#f8fbff;border-bottom:1px solid #e2e8f0;text-align:center;color:#334155;font-weight:700}
 .content-card{
   margin-top:26px;
   border:1px solid #dbe3ea;
@@ -148,7 +156,7 @@ td:last-child{font-weight:800;color:#0f3f6e}
 @media(max-width:640px){
   body{padding:14px 10px}
   .container{padding:22px 14px;border-radius:14px}
-  .topbuttons,.brandbuttons{display:grid;grid-template-columns:1fr;gap:9px}
+  .topbuttons,.brandbuttons,.tonnagebuttons{display:grid;grid-template-columns:1fr;gap:9px}
   button{width:100%;min-width:0}
   th,td{padding:12px 10px}
   .brand-logo.carrier,.brand-logo.goodman,.brand-logo.trane{font-size:31px}
@@ -192,7 +200,8 @@ td:last-child{font-weight:800;color:#0f3f6e}
 
   <div class="section-label">Choose a Pricing Category</div>
   <div class="topbuttons">
-    <button id="equipBtn" class="active" onclick="setMode('equipment')">Equipment Only</button>
+    <button id="equipBtn" class="active" onclick="setMode('equipment')">Full Equipment Set</button>
+    <button id="individualBtn" onclick="setMode('individual')">Individual Equipment</button>
     <button id="installBtn" onclick="setMode('install')">Installation</button>
     <button id="financeBtn" onclick="setMode('finance')">Installation with Financing</button>
   </div>
@@ -202,6 +211,18 @@ td:last-child{font-weight:800;color:#0f3f6e}
     <button id="Carrier" class="active" onclick="setBrand('Carrier')">Carrier</button>
     <button id="Goodman" onclick="setBrand('Goodman')">Goodman</button>
     <button id="Trane" onclick="setBrand('Trane')">Trane</button>
+  </div>
+
+  <div id="tonnageSection" class="tonnage-section">
+    <div class="section-label">Choose Tonnage</div>
+    <div class="tonnagebuttons">
+      <button id="ton2" class="active" onclick="setTonnage(2)">2</button>
+      <button id="ton2_5" onclick="setTonnage(2.5)">2.5</button>
+      <button id="ton3" onclick="setTonnage(3)">3</button>
+      <button id="ton3_5" onclick="setTonnage(3.5)">3.5</button>
+      <button id="ton4" onclick="setTonnage(4)">4</button>
+      <button id="ton5" onclick="setTonnage(5)">5</button>
+    </div>
   </div>
 
   <div id="content"></div>
@@ -214,12 +235,13 @@ const FINANCING_IMAGE_ES = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAABgAAAA
 
 let mode='equipment';
 let brand='Carrier';
+let selectedTonnage=2;
 
 const data={
   equipment:{
     Carrier:[[2,2480],[2.5,2680],[3,2880],[3.5,2980],[4,3180],[5,3480]],
     Goodman:[[2,2280],[2.5,2480],[3,2680],[3.5,2880],[4,3080],[5,3280]],
-    Trane:[[2,3400],[2.5,3500],[3,3580],[3.5,3780],[4,3980],[5,4180]]
+    Trane:[[2,3400],[2.5,3500],[3,3580],[3.5,3780],[4,3980],[5,10180]]
   },
   install:{
     Carrier:[[2,5800],[2.5,6000],[3,6200],[3.5,6400],[4,6600],[5,6800]],
@@ -233,10 +255,171 @@ const data={
   }
 };
 
+const individualEquipment={
+  Carrier:{
+    2:[
+      ['Condenser','1PGA5SAN52400W',1450],
+      ['Air Handler','1PFJ5ANXB24L00',1060],
+      ['Furnace','1P58SC0B045M17--14',880],
+      ['HK','KFFEH2601C10',200],
+      ['Heat Pump','1PGH5SAN52400A',1580],
+      ['Coil','1PCVAMA2517XMA',620]
+    ],
+    2.5:[
+      ['Condenser','1PGA5SAN53000W',1650],
+      ['Air Handler','1PFJ5ANXB30L00',1060],
+      ['Furnace','1P58SC0B070M17--12',760],
+      ['HK','KFFEH2601C10',200],
+      ['Heat Pump','1PGH5SAN53000A',1780],
+      ['Coil','1PCVAMA3117XMA',620]
+    ],
+    3:[
+      ['Condenser','1PGA5SAN53602W',1850],
+      ['Air Handler','1PFJ5ANXB36L00',1120],
+      ['Furnace','1P58SC0B070M17--12',760],
+      ['HK','KFFEH2601C10',200],
+      ['Heat Pump','1PGH5SAN53600A',1980],
+      ['Coil','1PCVAMA3617XMA',620]
+    ],
+    3.5:[
+      ['Condenser','1PGA5SAN54201W',2020],
+      ['Air Handler','1PFJ5ANXC42L00',1280],
+      ['Furnace','1P58SC0B090M21--16',820],
+      ['HK','KFFEH3101C15',200],
+      ['Heat Pump','1P27SCA542A003',2080],
+      ['Coil','1PCVAMA4321XMA',620]
+    ],
+    4:[
+      ['Condenser','1PGA5SAN54801W',2080],
+      ['Air Handler','1PFJ5ANXC48L00',1280],
+      ['Furnace','1P58SC0B090M21--16',820],
+      ['HK','KFFEH3101C15',200],
+      ['Heat Pump','1PGH5SAN54801A',2280],
+      ['Coil','1PCVAMA4921XMA',630]
+    ],
+    5:[
+      ['Condenser','1P26SCA560W003',2500],
+      ['Air Handler','1PFJ5ANXD60L00',1380],
+      ['Furnace','1P58SC0B090M21--20',820],
+      ['HK','KFFEH3101C15',200],
+      ['Heat Pump','1P27SCA560A003',2600],
+      ['Coil','1PCVAMA6021XMA',630]
+    ]
+  },
+  Goodman:{
+    2:[
+      ['Condenser','GLXS4BA2410',1480],
+      ['Air Handler','AMST24BU1300',1100],
+      ['Furnace','GR9S800603BN',800],
+      ['HK','HKTSD10X1',200],
+      ['Heat Pump','GLZS4BA2410',1580],
+      ['Coil Horizontal','CHPTA2426B3',620],
+      ['Coil Vertical','CAPTA2422B3',620]
+    ],
+    2.5:[
+      ['Condenser','GLXS4BA3010',1580],
+      ['Air Handler','AMST30BU1300',1000],
+      ['Furnace','GR9S800603BN',800],
+      ['HK','HKTSD10X1',200],
+      ['Heat Pump','GLZS4BA3010',1680],
+      ['Coil Horizontal','CHPTA3026B3',620],
+      ['Coil Vertical','CAPTA3026B3',620]
+    ],
+    3:[
+      ['Condenser','GLXS4BA3610',1680],
+      ['Air Handler','AMST36BU1300',1100],
+      ['Furnace','GR9S800603BN',800],
+      ['HK','HKTSD10X1',200],
+      ['Heat Pump','GLZS4BA3610',1780],
+      ['Coil Horizontal','CHPTA3630B3',620],
+      ['Coil Vertical','CAPTA3626B3',620]
+    ],
+    3.5:[
+      ['Condenser','GLXS4BA4210',1880],
+      ['Air Handler','AMST42CU1300',1100],
+      ['Furnace','GR9S800804CN',880],
+      ['HK','HKTSD15XB',200],
+      ['Heat Pump','GLZS4BA4210',1980],
+      ['Coil Horizontal','CHPTA4230C3',620],
+      ['Coil Vertical','CAPTA4230C3',620]
+    ],
+    4:[
+      ['Condenser','GLXS4BA4810',2080],
+      ['Air Handler','AMST48CU1300',1100],
+      ['Furnace','GR9S800804CN',880],
+      ['HK','HKTSD15XB',200],
+      ['Heat Pump','GLZS4BA4810',2180],
+      ['Coil Horizontal','CHPTA4830C3',620],
+      ['Coil Vertical','CAPTA6030C3',620]
+    ],
+    5:[
+      ['Condenser','GLXS4BA6010',2280],
+      ['Air Handler','AMST60DU1300',1100],
+      ['Furnace','GR9S800805CN',880],
+      ['HK','HKTSD15XB',200],
+      ['Heat Pump','GLZS4BA6010',2380],
+      ['Coil Horizontal','CHPTA6030D3',620],
+      ['Coil Vertical','CAPTA6030C3',620]
+    ]
+  },
+  Trane:{
+    2:[
+      ['Condenser','5TTR6024A1000A',2200],
+      ['Air Handler','5TEM6B03AV21SA',1600],
+      ['Furnace','S8X1B040M2PSCC',1100],
+      ['HK','BAYHTR1510BRKC',200],
+      ['Heat Pump','5TWR6024A1000A',2300],
+      ['Coil','5TXCB004AS3HCA',900]
+    ],
+    2.5:[
+      ['Condenser','5TTR6030A1000A',2300],
+      ['Air Handler','5TEM6B03AV21SA',1600],
+      ['Furnace','S8X1B060M4PSCC',1300],
+      ['HK','BAYHTR1510BRKC',200],
+      ['Heat Pump','5TWR6030A1000A',2400],
+      ['Coil','5TXCB006AS3HCA',960]
+    ],
+    3:[
+      ['Condenser','5TTR6036A1000A',2500],
+      ['Air Handler','5TEM6D04AV31SA',1800],
+      ['Furnace','S8X1B060M4PSCC',1300],
+      ['HK','BAYHTR1510BRKC',200],
+      ['Heat Pump','5TWR6036A1000A',2600],
+      ['Coil','5TXCB006AS3HCA',960]
+    ],
+    3.5:[
+      ['Condenser','5TTR6042A1000B',2600],
+      ['Air Handler','5TEM6D05AV41SA',1800],
+      ['Furnace','S8X1C080M5PSCC',1380],
+      ['HK','BAYHTR1517BRKA',200],
+      ['Heat Pump','5TWR6042A1000A',2700],
+      ['Coil','5TXCC007AS3HCA',960]
+    ],
+    4:[
+      ['Condenser','5TTR6048A1000A',2700],
+      ['Air Handler','5TEM6D06AV41SA',1800],
+      ['Furnace','S8X1C080M5PSCC',1380],
+      ['HK','BAYHTR1517BRKA',200],
+      ['Heat Pump','5TWR6048A1000A',2800],
+      ['Coil','5TXCC007AS3HCA',960]
+    ],
+    5:[
+      ['Condenser','5TTR6060A1000A',3000],
+      ['Air Handler','5TEM6D07AV51SA',1900],
+      ['Furnace','S8X1C100M5PSCC',1480],
+      ['HK','BAYHTR1517BRKA',200],
+      ['Heat Pump','5TWR6060A1000A',3100],
+      ['Coil','5TXCC009AS3HCA',980]
+    ]
+  }
+};
+
 function setMode(m){
   mode=m;
-  ['equipBtn','installBtn','financeBtn'].forEach(id=>document.getElementById(id).classList.remove('active'));
-  document.getElementById(m==='equipment'?'equipBtn':m==='install'?'installBtn':'financeBtn').classList.add('active');
+  ['equipBtn','individualBtn','installBtn','financeBtn'].forEach(id=>document.getElementById(id).classList.remove('active'));
+  const activeId=m==='equipment'?'equipBtn':m==='individual'?'individualBtn':m==='install'?'installBtn':'financeBtn';
+  document.getElementById(activeId).classList.add('active');
+  document.getElementById('tonnageSection').classList.toggle('show',m==='individual');
   render();
 }
 function setBrand(b){
@@ -245,14 +428,27 @@ function setBrand(b){
   document.getElementById(b).classList.add('active');
   render();
 }
+function setTonnage(t){
+  selectedTonnage=t;
+  const ids={2:'ton2',2.5:'ton2_5',3:'ton3',3.5:'ton3_5',4:'ton4',5:'ton5'};
+  Object.values(ids).forEach(id=>document.getElementById(id).classList.remove('active'));
+  document.getElementById(ids[t]).classList.add('active');
+  render();
+}
 function money(v){return v.toLocaleString('en-US',{style:'currency',currency:'USD'});}
 function logo(name){
-  return `<div class="logo-area"><div class="brand-logo ${name.toLowerCase()}"><span class="brand-mark"></span><span>${name}</span></div><div class="mode-note">${mode==='equipment'?'Equipment Only':mode==='install'?'Installation':'Installation with Financing'}</div></div>`;
+  return `<div class="logo-area"><div class="brand-logo ${name.toLowerCase()}"><span class="brand-mark"></span><span>${name}</span></div><div class="mode-note">${mode==='equipment'?'Full Equipment Set':mode==='individual'?'Individual Equipment':mode==='install'?'Installation':'Installation with Financing'}</div></div>`;
 }
 function render(){
   let html='<div class="content-card">'+logo(brand);
   if(mode==='equipment'){
     html+=equipmentTable(data.equipment[brand]);
+  }else if(mode==='individual'){
+    if(individualEquipment[brand]){
+      html+=individualEquipmentTable(individualEquipment[brand][selectedTonnage],selectedTonnage,brand);
+    }else{
+      html+='<div class="note">Individual equipment pricing for '+brand+' is not available yet.</div>';
+    }
   }else if(mode==='install'){
     html+=data.install[brand]?table(data.install[brand],'Installation Price'):'<div class="note">Installation pricing is not available for this brand yet.</div>';
   }else{
@@ -265,6 +461,13 @@ function render(){
   }
   html+='</div>';
   document.getElementById('content').innerHTML=html;
+}
+function individualEquipmentTable(rows,tonnage,brand){
+  if(!rows) return '<div class="note">No individual equipment data is available for this tonnage.</div>';
+  let h=`<div class="individual-summary">${tonnage} Ton - Individual ${brand} Equipment</div>`;
+  h+='<div class="table-wrap"><table class="individual-table"><thead><tr><th>Equipment</th><th>Model</th><th>Price</th></tr></thead><tbody>';
+  rows.forEach(r=>h+=`<tr><td>${r[0]}</td><td>${r[1]}</td><td>${money(r[2])}</td></tr>`);
+  return h+'</tbody></table></div>';
 }
 function equipmentTable(rows){
   let h='<div class="table-wrap"><table><thead><tr><th>Tons</th><th>Full System Price</th><th>Heat Pump Price</th></tr></thead><tbody>';
