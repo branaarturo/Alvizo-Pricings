@@ -205,6 +205,13 @@ td:last-child{font-weight:800;color:#0f3f6e}
 
 /* Center all Excel-style table content */
 table th, table td { text-align:center !important; vertical-align:middle; }
+/* Embedded Plenum Calculator */
+.plenum-panel{margin-top:24px;border:1px solid #dbe3ea;border-radius:14px;overflow:hidden;background:white;box-shadow:0 8px 22px rgba(15,23,42,.07)}
+.plenum-panel-header{padding:16px 20px;background:#eaf4ff;color:#17324d;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.plenum-panel-header strong{font-size:19px}
+.plenum-panel-header a{color:#0057a8;font-weight:700}
+.plenum-iframe{display:block;width:100%;height:850px;min-height:70vh;border:0;background:#fff}
+@media(max-width:640px){.plenum-iframe{height:900px}.topbuttons{grid-template-columns:1fr 1fr}.topbuttons button{font-size:12px;padding:12px 5px;min-width:0}}
 </style>
 </head>
 <body>
@@ -218,10 +225,11 @@ table th, table td { text-align:center !important; vertical-align:middle; }
  <button id="installBtn" onclick="setMode('install')">Installation</button>
  <button id="financeBtn" onclick="setMode('finance')">Installation with Financing</button>
  <button id="purchasedBtn" onclick="requestPurchaseMode()">Purchase</button>
+  <button id="plenumBtn" onclick="setMode('plenum')">Plenum Calculator</button>
  </div>
 
- <div class="section-label">Choose Equipment Brand</div>
- <div class="brandbuttons">
+ <div id="brandHeading" class="section-label">Choose Equipment Brand</div>
+ <div class="brandbuttons" id="brandButtons">
  <button id="Carrier" class="active" onclick="setBrand('Carrier')">Carrier</button>
  <button id="Goodman" onclick="setBrand('Goodman')">Goodman</button>
  <button id="Trane" onclick="setBrand('Trane')">Trane</button>
@@ -461,10 +469,12 @@ async function requestPurchaseMode(){
 function setMode(m){
  if(m==='purchased' && sessionStorage.getItem('_purchaseUnlocked')!=='1') return;
  mode=m;
- ['equipBtn','individualBtn','installBtn','financeBtn','purchasedBtn'].forEach(id=>document.getElementById(id).classList.remove('active'));
- const activeId=m==='equipment'?'equipBtn':m==='individual'?'individualBtn':m==='install'?'installBtn':m==='finance'?'financeBtn':'purchasedBtn';
+ ['equipBtn','individualBtn','installBtn','financeBtn','purchasedBtn','plenumBtn'].forEach(id=>document.getElementById(id).classList.remove('active'));
+ const activeId=m==='equipment'?'equipBtn':m==='individual'?'individualBtn':m==='install'?'installBtn':m==='finance'?'financeBtn':m==='plenum'?'plenumBtn':'purchasedBtn';
  document.getElementById(activeId).classList.add('active');
  document.getElementById('tonnageSection').classList.toggle('show',m==='individual'||m==='purchased');
+ document.getElementById('brandHeading').style.display=m==='plenum'?'none':'';
+ document.getElementById('brandButtons').style.display=m==='plenum'?'none':'';
  render();
 }
 function setBrand(b){
@@ -485,6 +495,14 @@ function logo(name){
  return `<div class="logo-area"><div class="brand-logo ${name.toLowerCase()}"><span class="brand-mark"></span><span>${name}</span></div><div class="mode-note">${mode==='equipment'?'Full Equipment Set':mode==='individual'?'Individual Equipment':mode==='install'?'Installation':mode==='finance'?'Installation with Financing':"Purchase"}</div></div>`;
 }
 function render(){
+ if(mode==='plenum'){
+   document.getElementById('content').innerHTML=`
+    <section class="plenum-panel">
+      <div class="plenum-panel-header"><strong>Plenum Calculator</strong><a href="https://plenums.vercel.app/" target="_blank" rel="noopener noreferrer">Open in new tab ↗</a></div>
+      <iframe class="plenum-iframe" title="Plenum Calculator" src="https://plenums.vercel.app/" loading="eager" allow="clipboard-read; clipboard-write" referrerpolicy="strict-origin-when-cross-origin"></iframe>
+    </section>`;
+   return;
+ }
  let html='<div class="content-card">'+logo(brand);
  if(mode==='equipment'){
  html+=equipmentTable(data.equipment[brand]);
