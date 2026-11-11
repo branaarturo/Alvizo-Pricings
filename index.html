@@ -125,10 +125,6 @@ button.active{
 .brand-logo.goodman .brand-mark{width:26px;height:26px;border:5px solid #e87500;border-radius:3px;transform:rotate(45deg)}
 .brand-logo.trane{color:#d71920;font-size:37px;font-style:italic}
 .brand-logo.trane .brand-mark{width:30px;height:18px;border:3px solid #d71920;border-radius:50%;position:relative}
-.brand-logo.lennox{color:#85501f;font-size:37px;font-style:italic}
-.brand-logo.lennox .brand-mark{width:24px;height:24px;border:4px solid #85501f;border-radius:50%;box-shadow:inset 0 0 0 3px #fff}
-.brandbuttons #Lennox{border-color:#9a6a3e;color:#85501f;background:#f7eee4}
-.brandbuttons #Lennox.active{background:linear-gradient(135deg,#754118,#a66b37);border-color:#754118;color:white;box-shadow:0 8px 18px rgba(117,65,24,.25)}
 .brand-logo.trane .brand-mark:after{content:"";position:absolute;left:4px;right:4px;top:6px;border-top:3px solid #d71920;transform:skewX(-25deg)}
 .mode-note{
  text-align:center;
@@ -173,7 +169,7 @@ td:last-child{font-weight:800;color:#0f3f6e}
  .topbuttons{display:grid}
  button{width:100%;min-width:0}
  th,td{padding:12px 10px}
- .brand-logo.carrier,.brand-logo.goodman,.brand-logo.trane,.brand-logo.lennox{font-size:31px}
+ .brand-logo.carrier,.brand-logo.goodman,.brand-logo.trane{font-size:31px}
 }
 
 .finance-language-section{
@@ -207,8 +203,6 @@ td:last-child{font-weight:800;color:#0f3f6e}
 }
 
 
-.lennox-seer-summary{padding:14px 18px;background:#fbf5ee;border-bottom:1px solid #eadac8;text-align:center;color:#754118}
-.lennox-seer-values{display:flex;justify-content:center;gap:22px;flex-wrap:wrap;margin-top:9px;font-size:15px}
 /* Center all Excel-style table content */
 table th, table td { text-align:center !important; vertical-align:middle; }
 /* Embedded Plenum Calculator */
@@ -266,22 +260,11 @@ let mode='equipment';
 let brand='Carrier';
 let selectedTonnage=2;
 
-const lennoxSeers={
- 2:{gas:15.8,electric:16,heatPump:15.2},
- 2.5:{gas:15.5,electric:16,heatPump:15.5},
- 3:{gas:14.7,electric:16,heatPump:15.2},
- 3.5:{gas:15.5,electric:14.7,heatPump:14.3},
- 4:{gas:13.8,electric:14.7,heatPump:14.3},
- 5:{gas:13.8,electric:13.8,heatPump:14.3}
-};
-const lennoxFullPrices={2:[2990,3190],2.5:[3050,3250],3:[3100,3300],3.5:[3420,3620],4:[3570,3770],5:[3880,4080]};
-
 const data={
  equipment:{
  Carrier:[[2,2480],[2.5,2680],[3,2880],[3.5,2980],[4,3180],[5,3480]],
  Goodman:[[2,2280],[2.5,2480],[3,2680],[3.5,2880],[4,3080],[5,3280]],
- Trane:[[2,3400],[2.5,3500],[3,3580],[3.5,3780],[4,3980],[5,4180]],
- Lennox:[[2,2990],[2.5,3050],[3,3100],[3.5,3420],[4,3570],[5,3880]]
+ Trane:[[2,3400],[2.5,3500],[3,3580],[3.5,3780],[4,3980],[5,4180]]
  },
  install:{
  Carrier:[[2,5800],[2.5,6000],[3,6200],[3.5,6400],[4,6600],[5,6800]],
@@ -451,62 +434,6 @@ const individualEquipment={
  ['Heat Pump','5TWR6060A1000A',3100],
  ['Coil','5TXCC009AS3HCA',980]
  ]
- },
- Lennox:{
- 2:[
- ['Condenser','ML14KC1-024-230A',1550],
- ['Air Handler','CBK45UHET-024',1180],
- ['Furnace','ML180UH045E36A',980],
- ['Heat Kit','ECB45-5CB-P',140],
- ['Heat Pump','ML14KP1-024-230',2100],
- ['Upflow Coil','CK40CT-24A',740],
- ['Horizontal Coil','CK40HT-18A',740]
- ],
- 2.5:[
- ['Condenser','ML14KC1-030-230A',1750],
- ['Air Handler','CBK45UHET-030',1180],
- ['Furnace','ML180UH045E36A',980],
- ['Heat Kit','ECB45-5CB-P',140],
- ['Heat Pump','ML14KP1-030-230',2200],
- ['Upflow Coil','CK40CT-30A',740],
- ['Horizontal Coil','CK40HT-24A',740]
- ],
- 3:[
- ['Condenser','ML14KC1-036-230A',1950],
- ['Air Handler','CBK45UHET-036',1180],
- ['Furnace','ML180UH045E36A',980],
- ['Heat Kit','ECB45-10CB-P',160],
- ['Heat Pump','ML14KP1-036-230',2400],
- ['Upflow Coil','CK40CT-36B',760],
- ['Horizontal Coil','CK40HT-24A',760]
- ],
- 3.5:[
- ['Condenser','ML14KC1-042-230A',2120],
- ['Air Handler','CBK45UHET-042',1480],
- ['Furnace','ML180UH090E48B',1060],
- ['Heat Kit','ECB45-10CB-P',160],
- ['Heat Pump','ML14KP1-042-230',2500],
- ['Upflow Coil','CK40CT-48B',780],
- ['Horizontal Coil','CK40HT-30B',780]
- ],
- 4:[
- ['Condenser','ML14KC1-048-230A',2280],
- ['Air Handler','CBK45UHET-048',1680],
- ['Furnace','ML180UH090E60C',1080],
- ['Heat Kit','ECB45-15CB-P',180],
- ['Heat Pump','ML14KP1-048-230',2600],
- ['Upflow Coil','CK40CT-48C',880],
- ['Horizontal Coil','CK40HT-36C',880]
- ],
- 5:[
- ['Condenser','ML14KC1-060-230A',2600],
- ['Air Handler','CBK45UHET-060',1780],
- ['Furnace','ML180UH090E60C',1080],
- ['Heat Kit','ECB45-15CB-P',180],
- ['Heat Pump','ML14KP1-060-230',2900],
- ['Upflow Coil','CK40CT-60C',880],
- ['Horizontal Coil','CK40HT-48C',880]
- ]
  }
 };
 
@@ -552,7 +479,7 @@ function setMode(m){
 }
 function setBrand(b){
  brand=b;
- ['Carrier','Goodman','Trane','Lennox'].forEach(x=>document.getElementById(x).classList.remove('active'));
+ ['Carrier','Goodman','Trane'].forEach(x=>document.getElementById(x).classList.remove('active'));
  document.getElementById(b).classList.add('active');
  render();
 }
@@ -578,7 +505,7 @@ function render(){
  }
  let html='<div class="content-card">'+logo(brand);
  if(mode==='equipment'){
- html+=equipmentTable(data.equipment[brand],brand);
+ html+=equipmentTable(data.equipment[brand]);
  }else if(mode==='individual'){
  if(individualEquipment[brand]){
  html+=individualEquipmentTable(individualEquipment[brand][selectedTonnage],selectedTonnage,brand);
@@ -589,7 +516,7 @@ function render(){
  html+=data.install[brand]?table(data.install[brand],'Installation Price'):'<div class="note">Installation pricing is not available for this brand yet.</div>';
  }else if(mode==='purchased'){
  const ps=_decodePurchaseSource();
- html+=purchaseSourceTable(ps[brand]?.[selectedTonnage],selectedTonnage,brand);
+ html+=purchaseSourceTable(ps[brand][selectedTonnage],selectedTonnage,brand);
  }else{
  if(data.finance[brand]){
  html+=table(data.finance[brand],'Installation with Financing');
@@ -612,21 +539,13 @@ function purchaseSourceTable(rows,tonnage,brand){
 function individualEquipmentTable(rows,tonnage,brand){
  if(!rows) return '<div class="note">No individual equipment data is available for this tonnage.</div>';
  let h=`<div class="individual-summary">${tonnage} Ton - Individual ${brand} Equipment</div>`;
- if(brand==='Lennox'){
-  const r=lennoxSeers[tonnage];
-  h+=`<div class="lennox-seer-summary"><strong>SEER2 Ratings</strong><div class="lennox-seer-values"><span>Gas: <b>${r.gas}</b></span><span>Electric: <b>${r.electric}</b></span><span>Heat Pump: <b>${r.heatPump}</b></span></div></div>`;
- }
  h+='<div class="table-wrap"><table class="individual-table"><thead><tr><th>Equipment</th><th>Model</th><th>Price</th></tr></thead><tbody>';
  rows.forEach(r=>h+=`<tr><td>${r[0]}</td><td>${r[1]}</td><td>${money(r[2])}</td></tr>`);
  return h+'</tbody></table></div>';
 }
-function equipmentTable(rows,brand){
- let h='<div class="table-wrap"><table><thead><tr><th>Tons</th><th>Seers</th><th>Full System Price</th><th>Heat Pump Price</th></tr></thead><tbody>';
- rows.forEach(r=>{
-  const seer=brand==='Lennox'?lennoxSeers[r[0]].gas:'—';
-  const heatPrice=brand==='Lennox'?lennoxFullPrices[r[0]][1]:r[1]+200;
-  h+=`<tr><td>${r[0]}</td><td>${seer}</td><td>${money(r[1])}</td><td>${money(heatPrice)}</td></tr>`;
- });
+function equipmentTable(rows){
+ let h='<div class="table-wrap"><table><thead><tr><th>Tons</th><th>Full System Price</th><th>Heat Pump Price</th></tr></thead><tbody>';
+ rows.forEach(r=>h+=`<tr><td>${r[0]}</td><td>${money(r[1])}</td><td>${money(r[1]+200)}</td></tr>`);
  return h+'</tbody></table></div>';
 }
 function table(rows,header){
