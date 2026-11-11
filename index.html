@@ -212,6 +212,14 @@ table th, table td { text-align:center !important; vertical-align:middle; }
 .plenum-panel-header a{color:#0057a8;font-weight:700}
 .plenum-iframe{display:block;width:100%;height:850px;min-height:70vh;border:0;background:#fff}
 @media(max-width:640px){.plenum-iframe{height:900px}.topbuttons{grid-template-columns:1fr 1fr}.topbuttons button{font-size:12px;padding:12px 5px;min-width:0}}
+/* Lennox-only additions; original three brands are not restyled. */
+.brand-logo.lennox{color:#86502b;font-size:36px}
+.brand-logo.lennox .brand-mark{width:25px;height:25px;border:5px solid #86502b;border-radius:50%;border-right-color:transparent;transform:rotate(-35deg)}
+.lennox-seer{display:none;text-align:center;margin:10px 0 18px;background:#fff7ef;border:1px solid #e4c9af;border-radius:10px;padding:12px 10px;color:#75421e}
+.lennox-seer.show{display:block}
+.lennox-seer strong{display:block;margin-bottom:7px;font-size:14px;text-transform:uppercase;letter-spacing:.5px}
+.lennox-seer .values{display:flex;gap:20px;justify-content:center;flex-wrap:wrap;font-size:14px}
+@media(max-width:640px){.brand-logo.lennox{font-size:31px}}
 </style>
 </head>
 <body>
@@ -232,7 +240,8 @@ table th, table td { text-align:center !important; vertical-align:middle; }
  <div class="brandbuttons" id="brandButtons">
  <button id="Carrier" class="active" onclick="setBrand('Carrier')">Carrier</button>
  <button id="Goodman" onclick="setBrand('Goodman')">Goodman</button>
- <button id="Trane" onclick="setBrand('Trane')">Trane</button>
+  <button id="Trane" onclick="setBrand('Trane')">Trane</button>
+  <button id="Lennox" onclick="setBrand('Lennox')">Lennox</button>
  </div>
 
  <div id="tonnageSection" class="tonnage-section">
@@ -247,7 +256,8 @@ table th, table td { text-align:center !important; vertical-align:middle; }
  </div>
  </div>
 
- <div id="content"></div>
+  <div id="lennoxSeer" class="lennox-seer"></div>
+  <div id="content"></div>
 </div>
 
 <script>
@@ -277,6 +287,93 @@ const data={
  Trane:[[2,8250],[2.5,8500],[3,8750],[3.5,9000],[4,9250],[5,9500]]
  }
 };
+
+// Lennox values transcribed from the two provided pricing screenshots.
+const lennoxSets=[
+ [2,15.8,2990,3190],
+ [2.5,15.5,3050,3250],
+ [3,14.7,3100,3300],
+ [3.5,15.5,3420,3620],
+ [4,13.8,3570,3770],
+ [5,13.8,3880,4080]
+];
+const lennoxSeers={
+ 2:{gas:15.8,electric:16,heatPump:15.2},
+ 2.5:{gas:15.5,electric:16,heatPump:15.5},
+ 3:{gas:14.7,electric:16,heatPump:15.2},
+ 3.5:{gas:15.5,electric:14.7,heatPump:14.3},
+ 4:{gas:13.8,electric:14.7,heatPump:14.3},
+ 5:{gas:13.8,electric:13.8,heatPump:14.3}
+};
+const lennoxEquipment={
+ 2:[
+ ['Condenser','ML14KC1-024-230A',1550],
+ ['Air Handler','CBK45UHET-024',1180],
+ ['Furnace','ML180UH045E36A',980],
+ ['Heat Kit','ECB45-5CB-P',140],
+ ['Heat Pump','ML14KP1-024-230',2100],
+ ['Upflow Coil','CK40CT-24A',740],
+ ['Horizontal Coil','CK40HT-18A',740]
+ ],
+ 2.5:[
+ ['Condenser','ML14KC1-030-230A',1750],
+ ['Air Handler','CBK45UHET-030',1180],
+ ['Furnace','ML180UH045E36A',980],
+ ['Heat Kit','ECB45-5CB-P',140],
+ ['Heat Pump','ML14KP1-030-230',2200],
+ ['Upflow Coil','CK40CT-30A',740],
+ ['Horizontal Coil','CK40HT-24A',740]
+ ],
+ 3:[
+ ['Condenser','ML14KC1-036-230A',1950],
+ ['Air Handler','CBK45UHET-036',1180],
+ ['Furnace','ML180UH045E36A',980],
+ ['Heat Kit','ECB45-10CB-P',160],
+ ['Heat Pump','ML14KP1-036-230',2400],
+ ['Upflow Coil','CK40CT-36B',760],
+ ['Horizontal Coil','CK40HT-24A',760]
+ ],
+ 3.5:[
+ ['Condenser','ML14KC1-042-230A',2120],
+ ['Air Handler','CBK45UHET-042',1480],
+ ['Furnace','ML180UH090E48B',1060],
+ ['Heat Kit','ECB45-10CB-P',160],
+ ['Heat Pump','ML14KP1-042-230',2500],
+ ['Upflow Coil','CK40CT-48B',780],
+ ['Horizontal Coil','CK40HT-30B',780]
+ ],
+ 4:[
+ ['Condenser','ML14KC1-048-230A',2280],
+ ['Air Handler','CBK45UHET-048',1680],
+ ['Furnace','ML180UH090E60C',1080],
+ ['Heat Kit','ECB45-15CB-P',180],
+ ['Heat Pump','ML14KP1-048-230',2600],
+ ['Upflow Coil','CK40CT-48C',880],
+ ['Horizontal Coil','CK40HT-36C',880]
+ ],
+ 5:[
+ ['Condenser','ML14KC1-060-230A',2600],
+ ['Air Handler','CBK45UHET-060',1780],
+ ['Furnace','ML180UH090E60C',1080],
+ ['Heat Kit','ECB45-15CB-P',180],
+ ['Heat Pump','ML14KP1-060-230',2900],
+ ['Upflow Coil','CK40CT-60C',880],
+ ['Horizontal Coil','CK40HT-48C',880]
+ ]
+};
+function lennoxEquipmentTable(){
+ let h='<div class="table-wrap"><table><thead><tr><th>Tons</th><th>Seers</th><th>Full System Price</th><th>Heat Pump Price</th></tr></thead><tbody>';
+ lennoxSets.forEach(r=>h+=`<tr><td>${r[0]}</td><td>${r[1]}</td><td>${money(r[2])}</td><td>${money(r[3])}</td></tr>`);
+ return h+'</tbody></table></div>';
+}
+function updateLennoxSeers(){
+ const panel=document.getElementById('lennoxSeer');
+ const visible=brand==='Lennox' && mode==='individual';
+ panel.classList.toggle('show',visible);
+ if(!visible){panel.innerHTML='';return;}
+ const v=lennoxSeers[selectedTonnage];
+ panel.innerHTML=`<strong>${selectedTonnage} Ton — SEER2 Ratings</strong><div class="values"><span>Gas: <b>${v.gas}</b></span><span>Electric: <b>${v.electric}</b></span><span>Heat Pump: <b>${v.heatPump}</b></span></div>`;
+}
 
 const individualEquipment={
  Carrier:{
@@ -479,7 +576,7 @@ function setMode(m){
 }
 function setBrand(b){
  brand=b;
- ['Carrier','Goodman','Trane'].forEach(x=>document.getElementById(x).classList.remove('active'));
+ ['Carrier','Goodman','Trane','Lennox'].forEach(x=>document.getElementById(x).classList.remove('active'));
  document.getElementById(b).classList.add('active');
  render();
 }
@@ -503,11 +600,14 @@ function render(){
     </section>`;
    return;
  }
- let html='<div class="content-card">'+logo(brand);
+  updateLennoxSeers();
+  let html='<div class="content-card">'+logo(brand);
  if(mode==='equipment'){
- html+=equipmentTable(data.equipment[brand]);
+  html+=brand==='Lennox'?lennoxEquipmentTable():equipmentTable(data.equipment[brand]);
  }else if(mode==='individual'){
- if(individualEquipment[brand]){
+  if(brand==='Lennox'){
+  html+=individualEquipmentTable(lennoxEquipment[selectedTonnage],selectedTonnage,brand);
+  }else if(individualEquipment[brand]){
  html+=individualEquipmentTable(individualEquipment[brand][selectedTonnage],selectedTonnage,brand);
  }else{
  html+='<div class="note">Individual equipment pricing for '+brand+' is not available yet.</div>';
@@ -516,7 +616,7 @@ function render(){
  html+=data.install[brand]?table(data.install[brand],'Installation Price'):'<div class="note">Installation pricing is not available for this brand yet.</div>';
  }else if(mode==='purchased'){
  const ps=_decodePurchaseSource();
- html+=purchaseSourceTable(ps[brand][selectedTonnage],selectedTonnage,brand);
+  html+=brand==='Lennox'?'<div class="note">Purchasing-source pricing is not available for Lennox yet.</div>':purchaseSourceTable(ps[brand][selectedTonnage],selectedTonnage,brand);
  }else{
  if(data.finance[brand]){
  html+=table(data.finance[brand],'Installation with Financing');
