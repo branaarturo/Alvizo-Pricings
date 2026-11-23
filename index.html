@@ -276,7 +276,16 @@ table th, table td { text-align:center !important; vertical-align:middle; }
 // Publishable project values are intentionally public. RLS and column grants enforce access.
 const API_URL = 'https://uaetebnakduygbdmzchg.supabase.co';
 const PUBLISHABLE_KEY = 'sb_publishable_SJOFz8dSoOfHBjFhcD4VoQ_21QGO9B8';
-const sb = window.supabase.createClient(API_URL, PUBLISHABLE_KEY);
+// Keep each employee signed in on this browser across page reloads and restarts.
+// Supabase stores session tokens, not the employee password.
+const sb = window.supabase.createClient(API_URL, PUBLISHABLE_KEY, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: true,
+    storageKey: 'alvizo-dv-project-auth'
+  }
+});
 const brands = ['Goodman','Carrier','Lennox','Trane'];
 const tonnages = [2,2.5,3,3.5,4,5];
 const seer2 = {
