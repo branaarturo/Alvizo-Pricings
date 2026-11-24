@@ -242,6 +242,7 @@ table th, table td { text-align:center !important; vertical-align:middle; }
  <button id="individualBtn" onclick="setMode('individual')">Individual Equipment</button>
  <button id="installBtn" onclick="setMode('install')">Installation</button>
  <button id="financeBtn" onclick="setMode('finance')">Installation with Financing</button>
+ <button id="purchaseBtn" onclick="setMode('purchase')" hidden>Purchase</button>
  
   <button id="plenumBtn" onclick="setMode('plenum')">Plenum Calculator</button>
  </div>
@@ -294,17 +295,18 @@ const seer2 = {
  '4':{gas:13.8,electric:14.7,heatPump:14.3},'5':{gas:13.8,electric:13.8,heatPump:14.3}
 };
 let role=null, mode='equipment',brand='Goodman', selectedTonnage=2;
-let equipment=[], systemPrices=[];
+let equipment=[], systemPrices=[], purchaseSources=[];
 const $ = id => document.getElementById(id);
 const money = value => Number(value).toLocaleString('en-US',{style:'currency',currency:'USD'});
 const escapeHTML = value => String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function status(message){$('loadStatus').textContent=message||''}
 function shell(show){$('authPanel').hidden=show;$('staffToolbar').hidden=!show;$('pricingApp').hidden=!show}
 function setMode(m){
+ if(m==='purchase' && role!=='admin')return;
  mode=m;
- const ids={equipment:'equipBtn',individual:'individualBtn',install:'installBtn',finance:'financeBtn',plenum:'plenumBtn'};
+ const ids={equipment:'equipBtn',individual:'individualBtn',install:'installBtn',finance:'financeBtn',purchase:'purchaseBtn',plenum:'plenumBtn'};
  Object.values(ids).forEach(id=>$(id).classList.toggle('active',id===ids[m]));
- $('tonnageSection').classList.toggle('show',m==='individual');
+ $('tonnageSection').classList.toggle('show',m==='individual'||m==='purchase');
  $('brandHeading').hidden=m==='plenum';$('brandButtons').hidden=m==='plenum';
  render();
 }
@@ -316,7 +318,7 @@ function setTonnage(t){
 window.setMode=setMode;window.setBrand=setBrand;window.setTonnage=setTonnage;
 function logo(name){
  const nameText=escapeHTML(name), nameClass=name.toLowerCase();
- const labels={equipment:'Full Equipment Set',individual:'Individual Equipment',install:'Installation',finance:'Installation with Financing'};
+ const labels={equipment:'Full Equipment Set',individual:'Individual Equipment',install:'Installation',finance:'Installation with Financing',purchase:'Purchase · Supplier Sources'};
  return `<div class="logo-area"><div class="brand-logo ${nameClass}"><span class="brand-mark"></span><span>${nameText}</span></div><div class="mode-note">${labels[mode]||''}</div></div>`;
 }
 function table(rows,header){
@@ -342,6 +344,19 @@ function individualTable(){
 }
 // Financing images are served as separate static files for reliable deployment.
 const FINANCING_IMAGES = {en:'assets/financing-en.png',es:'assets/financing-es.png'};
+function purchaseTable(){
+ if(role!=='admin')return '<div class="note">Not authorized.</div>';
+ const rows=purchaseSources.filter(r=>r.brand===brand&&Number(r.tonnage)===selectedTonnage);
+ if(!rows.length)return '<div class="note">No purchasing sources for this selection.</div>';
+ return `<div class="individual-summary">${selectedTonnage} Ton — ${escapeHTML(brand)} Purchasing Sources</div><div class="table-wrap"><table class="individual-table"><thead><tr><th>Equipment</th><th>Model</th><th>Purchased with</th><th>Purchase Cost</th></tr></thead><tbody>`+
+ rows.map(r=>`<tr><td>${escapeHTML(r.equipment_type)}</td><td>${escapeHTML(r.model)}</td><td>${escapeHTML(r.purchased_with)}</td><td>${r.purchase_price==null?'Not entered':money(r.purchase_price)}</td></tr>`).join('')+'</tbody></table></div>';
+}
+async function loadPurchases(){
+ if(role!=='admin'){purchaseSources=[];return;}
+ const result=await sb.from('purchase_sources').select('brand,tonnage,equipment_type,model,purchased_with,purchase_price').order('brand').order('tonnage');
+ if(result.error){purchaseSources=[];status('Unable to load purchasing information: '+result.error.message);return;}
+ purchaseSources=result.data??[];
+}
 function financingLanguageSection(){return `<div class="finance-language-section"><h3>Choose Financing Language</h3><div class="language-buttons"><button id="englishFinanceBtn" class="active" onclick="showFinancingLanguage('en')">English</button><button id="spanishFinanceBtn" onclick="showFinancingLanguage('es')">Spanish</button></div><img id="financingPlanImage" class="finance-image" src="${FINANCING_IMAGES.en}" alt="English financing plans"></div>`;}
 function showFinancingLanguage(lang){
  const image=$('financingPlanImage');if(!image)return;
@@ -357,7 +372,7 @@ function render(){
  if(mode==='plenum'){
  $('content').innerHTML='<section class="plenum-panel"><div class="plenum-panel-header"><strong>Plenum Calculator</strong><a href="https://plenums.vercel.app/" target="_blank" rel="noopener noreferrer">Open in new tab ↗</a></div><iframe class="plenum-iframe" title="Plenum Calculator" src="https://plenums.vercel.app/" loading="eager" allow="clipboard-read; clipboard-write" referrerpolicy="strict-origin-when-cross-origin"></iframe></section>';return;
  }
- let content=mode==='equipment'?fullSetTable():mode==='individual'?individualTable():mode==='install'?table(rowsFor('install'),'Installation Price'):table(rowsFor('finance'),'Installation with Financing')+financingLanguageSection();
+ let content=mode==='purchase'?purchaseTable():mode==='equipment'?fullSetTable():mode==='individual'?individualTable():mode==='install'?table(rowsFor('install'),'Installation Price'):table(rowsFor('finance'),'Installation with Financing')+financingLanguageSection();
  $('content').innerHTML='<div class="content-card">'+logo(brand)+content+'</div>';
 }
 async function loadPrices(){
@@ -371,13 +386,13 @@ async function loadPrices(){
  status(`Updated ${new Date().toLocaleTimeString()}`);render();
 }
 async function useSession(session){
- role=null;shell(false);$('authError').textContent='';
+ role=null;purchaseSources=[];$('purchaseBtn').hidden=true;shell(false);$('authError').textContent='';
  if(!session){$('password').value='';return}
  const staff=await sb.from('staff').select('role').eq('user_id',session.user.id).maybeSingle();
  if(staff.error||!['viewer','editor','admin'].includes(staff.data?.role)){
   await sb.auth.signOut();$('authError').textContent='This account is not authorized for Alvizo pricing.';return;
  }
- role=staff.data.role;$('signedIn').textContent=`${session.user.email} · ${role}`;shell(true);await loadPrices();
+ role=staff.data.role;$('purchaseBtn').hidden=role!=='admin';$('signedIn').textContent=`${session.user.email} · ${role}`;shell(true);await Promise.all([loadPrices(),loadPurchases()]);render();
 }
 $('loginForm').addEventListener('submit',async e=>{
  e.preventDefault();$('authError').textContent='';$('loginBtn').disabled=true;
@@ -387,10 +402,9 @@ $('loginForm').addEventListener('submit',async e=>{
  await useSession(data.session);
 });
 $('signOut').addEventListener('click',async()=>{await sb.auth.signOut();await useSession(null)});
-$('refreshPrices').addEventListener('click',loadPrices);
+$('refreshPrices').addEventListener('click',async()=>{await Promise.all([loadPrices(),loadPurchases()]);render();});
 (async()=>{const {data,error}=await sb.auth.getSession();if(error){$('authError').textContent=error.message;return}await useSession(data.session)})();
-// No Purchase mode or supplier data is shipped in this file, even for admins.
-// Build a separate admin-only purchasing service after moving that data into secured tables.
+// Purchase information is requested from Supabase only for the admin role. RLS additionally enforces access.
 </script>
 </body>
 </html>
