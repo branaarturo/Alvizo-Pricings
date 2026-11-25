@@ -228,6 +228,7 @@ table th, table td { text-align:center !important; vertical-align:middle; }
 .login-form input{padding:14px;border-radius:9px;border:1px solid #c7d1dc;font:inherit}
 #authError{color:#b91c1c;margin:0}.staff-toolbar{max-width:920px;margin:0 auto 16px;display:flex;gap:12px;align-items:center;justify-content:flex-end;flex-wrap:wrap}
 .staff-toolbar button{min-width:0;padding:10px 15px;font-size:13px}
+ .activity-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;padding:16px}.activity-stat{background:#f8fbff;border:1px solid #dbe3ea;border-radius:10px;padding:12px;text-align:center}.activity-stat strong{display:block;font-size:24px;color:#0057a8}.activity-table td{font-size:13px}.activity-table th{font-size:12px}.activity-table td:first-child{overflow-wrap:anywhere}.activity-controls{padding:12px;text-align:center}.activity-controls button{min-width:0}
 </style>
 </head>
 <body>
@@ -242,6 +243,7 @@ table th, table td { text-align:center !important; vertical-align:middle; }
  <button id="individualBtn" onclick="setMode('individual')">Individual Equipment</button>
  <button id="installBtn" onclick="setMode('install')">Installation</button>
  <button id="financeBtn" onclick="setMode('finance')">Installation with Financing</button>
+ <button id="activityBtn" onclick="setMode('activity')" hidden>User Activity</button>
  <button id="purchaseBtn" onclick="setMode('purchase')" hidden>Purchase</button>
  
   <button id="plenumBtn" onclick="setMode('plenum')">Plenum Calculator</button>
@@ -302,13 +304,14 @@ const escapeHTML = value => String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<
 function status(message){$('loadStatus').textContent=message||''}
 function shell(show){$('authPanel').hidden=show;$('staffToolbar').hidden=!show;$('pricingApp').hidden=!show}
 function setMode(m){
- if(m==='purchase' && role!=='admin')return;
+ if(['purchase','activity'].includes(m) && role!=='admin')return;
  mode=m;
- const ids={equipment:'equipBtn',individual:'individualBtn',install:'installBtn',finance:'financeBtn',purchase:'purchaseBtn',plenum:'plenumBtn'};
+ const ids={equipment:'equipBtn',individual:'individualBtn',install:'installBtn',finance:'financeBtn',purchase:'purchaseBtn',activity:'activityBtn',plenum:'plenumBtn'};
  Object.values(ids).forEach(id=>$(id).classList.toggle('active',id===ids[m]));
  $('tonnageSection').classList.toggle('show',m==='individual'||m==='purchase');
- $('brandHeading').hidden=m==='plenum';$('brandButtons').hidden=m==='plenum';
+ $('brandHeading').hidden=['plenum','activity'].includes(m);$('brandButtons').hidden=['plenum','activity'].includes(m);
  render();
+ if(m==='activity')void loadActivity();
 }
 function setBrand(b){ brand=b;brands.forEach(x=>$(x).classList.toggle('active',x===b));render() }
 function setTonnage(t){
@@ -365,10 +368,53 @@ function showFinancingLanguage(lang){
  $('englishFinanceBtn').classList.toggle('active',!spanish);$('spanishFinanceBtn').classList.toggle('active',spanish);
 }
 window.showFinancingLanguage=showFinancingLanguage;
+let activityRows=[], activityUsers=[], activityError='', activityLoading=false, activityRequest=0;
+const activityDate = value => value ? new Date(value).toLocaleString('en-US',{timeZone:'America/Chicago'}) : '—';
+async function recordActivity(eventType){
+ try { const {error}=await sb.from('user_activity').insert({event_type:eventType}); if(error) console.warn('Activity tracking:',error.message); }
+ catch(error){console.warn('Activity tracking:',error);}
+}
+async function loadActivity(){
+ if(role!=='admin')return;
+ const request=++activityRequest; activityLoading=true; activityError=''; render();
+ try {
+  const staff=await sb.from('staff').select('*');
+  if(staff.error)throw staff.error;
+  const rows=[];
+  for(let offset=0;;offset+=500){
+   const result=await sb.from('user_activity').select('id,user_id,event_type,created_at').order('id').range(offset,offset+499);
+   if(result.error)throw result.error;
+   rows.push(...(result.data||[])); if((result.data||[]).length<500)break;
+   if(request!==activityRequest||role!=='admin')return;
+  }
+  if(request!==activityRequest||role!=='admin')return;
+  activityRows=rows; activityUsers=staff.data||[];
+ }catch(error){if(request===activityRequest)activityError=error.message||String(error);}
+ finally{if(request===activityRequest){activityLoading=false;if(role==='admin'&&mode==='activity')render();}}
+}
+function activityTable(){
+ if(role!=='admin')return '';
+ const now=Date.now();
+ const dayKey=value=>new Intl.DateTimeFormat('en-CA',{timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(value));
+ const today=dayKey(now), month=today.slice(0,7);
+ const stats=new Map(activityUsers.map(u=>[u.user_id,{name:u.email||u.full_name||u.name||u.user_id,logins:0,visits:0,lastLogin:null,lastVisit:null}]));
+ const totals={today:0,week:0,month:0};
+ for(const r of activityRows){
+  if(!stats.has(r.user_id))stats.set(r.user_id,{name:r.user_id,logins:0,visits:0,lastLogin:null,lastVisit:null});
+  const item=stats.get(r.user_id), key=r.event_type==='login'?'lastLogin':'lastVisit';
+  item[r.event_type==='login'?'logins':'visits']++;
+  if(!item[key]||Date.parse(r.created_at)>Date.parse(item[key]))item[key]=r.created_at;
+  if(r.event_type==='visit'){const date=dayKey(r.created_at);if(date===today)totals.today++;if(Date.parse(r.created_at)>=now-7*86400000)totals.week++;if(date.slice(0,7)===month)totals.month++;}
+ }
+ const cards=[['Users',stats.size],['Visits today',totals.today],['Visits last 7 days',totals.week],['Visits this month',totals.month]];
+ return '<div class="content-card"><div class="logo-area"><h2>User Activity</h2><div class="mode-note">Administrator only · Central Time · Visits count authenticated page loads</div></div><div class="activity-controls"><button type="button" onclick="loadActivity()">Refresh activity</button></div>'+ (activityLoading?'<div class="note">Loading activity…</div>':activityError?'<div class="note">Unable to load activity: '+escapeHTML(activityError)+'</div>':'<div class="activity-summary">'+cards.map(([label,value])=>`<div class="activity-stat"><strong>${value}</strong>${label}</div>`).join('')+'</div><div class="table-wrap"><table class="activity-table"><thead><tr><th>User</th><th>Logins</th><th>Visits</th><th>Last login</th><th>Last visit</th></tr></thead><tbody>'+[...stats.values()].sort((a,b)=>String(a.name).localeCompare(String(b.name))).map(r=>`<tr><td>${escapeHTML(r.name)}</td><td>${r.logins}</td><td>${r.visits}</td><td>${activityDate(r.lastLogin)}</td><td>${activityDate(r.lastVisit)}</td></tr>`).join('')+'</tbody></table></div>')+'</div>';
+}
+window.loadActivity=loadActivity;
 function render(){
  if(!role)return;
  const seerPanel=$('lennoxSeer');const showSeer=brand==='Lennox'&&mode==='individual';seerPanel.classList.toggle('show',showSeer);
  seerPanel.innerHTML=showSeer?`<strong>${selectedTonnage} Ton — SEER2 Ratings</strong><div class="values"><span>Gas: <b>${seer2[selectedTonnage]?.gas??'—'}</b></span><span>Electric: <b>${seer2[selectedTonnage]?.electric??'—'}</b></span><span>Heat Pump: <b>${seer2[selectedTonnage]?.heatPump??'—'}</b></span></div>`:'';
+ if(mode==='activity'){ $('content').innerHTML=activityTable();return; }
  if(mode==='plenum'){
  $('content').innerHTML='<section class="plenum-panel"><div class="plenum-panel-header"><strong>Plenum Calculator</strong><a href="https://plenums.vercel.app/" target="_blank" rel="noopener noreferrer">Open in new tab ↗</a></div><iframe class="plenum-iframe" title="Plenum Calculator" src="https://plenums.vercel.app/" loading="eager" allow="clipboard-read; clipboard-write" referrerpolicy="strict-origin-when-cross-origin"></iframe></section>';return;
  }
@@ -385,21 +431,21 @@ async function loadPrices(){
  equipment=e.data??[];systemPrices=s.data??[];
  status(`Updated ${new Date().toLocaleTimeString()}`);render();
 }
-async function useSession(session){
- role=null;purchaseSources=[];$('purchaseBtn').hidden=true;shell(false);$('authError').textContent='';
+async function useSession(session, explicitLogin=false){
+ role=null;purchaseSources=[];activityRows=[];activityUsers=[];activityError='';activityLoading=false;activityRequest++;$('activityBtn').hidden=true;$('content').innerHTML='';$('purchaseBtn').hidden=true;shell(false);$('authError').textContent='';
  if(!session){$('password').value='';return}
  const staff=await sb.from('staff').select('role').eq('user_id',session.user.id).maybeSingle();
  if(staff.error||!['viewer','editor','admin'].includes(staff.data?.role)){
   await sb.auth.signOut();$('authError').textContent='This account is not authorized for Alvizo pricing.';return;
  }
- role=staff.data.role;$('purchaseBtn').hidden=role!=='admin';$('signedIn').textContent=`${session.user.email} · ${role}`;shell(true);await Promise.all([loadPrices(),loadPurchases()]);render();
+ role=staff.data.role;$('activityBtn').hidden=role!=='admin';if(role!=='admin'&&['activity','purchase'].includes(mode))setMode('equipment');$('purchaseBtn').hidden=role!=='admin';$('signedIn').textContent=`${session.user.email} · ${role}`;shell(true);await Promise.all([loadPrices(),loadPurchases(),(async()=>{if(explicitLogin)await recordActivity('login');await recordActivity('visit');})()]);render();if(mode==='activity')void loadActivity();
 }
 $('loginForm').addEventListener('submit',async e=>{
  e.preventDefault();$('authError').textContent='';$('loginBtn').disabled=true;
  const {data,error}=await sb.auth.signInWithPassword({email:$('email').value.trim(),password:$('password').value});
  $('loginBtn').disabled=false;
  if(error){$('authError').textContent=error.message;return}
- await useSession(data.session);
+ await useSession(data.session,true);
 });
 $('signOut').addEventListener('click',async()=>{await sb.auth.signOut();await useSession(null)});
 $('refreshPrices').addEventListener('click',async()=>{await Promise.all([loadPrices(),loadPurchases()]);render();});
