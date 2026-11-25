@@ -378,7 +378,7 @@ async function loadActivity(){
  if(role!=='admin')return;
  const request=++activityRequest; activityLoading=true; activityError=''; render();
  try {
-  const staff=await sb.from('staff').select('*');
+  const staff=await sb.rpc('get_activity_users');
   if(staff.error)throw staff.error;
   const rows=[];
   for(let offset=0;;offset+=500){
@@ -397,10 +397,10 @@ function activityTable(){
  const now=Date.now();
  const dayKey=value=>new Intl.DateTimeFormat('en-CA',{timeZone:'America/Chicago',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(value));
  const today=dayKey(now), month=today.slice(0,7);
- const stats=new Map(activityUsers.map(u=>[u.user_id,{name:u.email||u.full_name||u.name||u.user_id,logins:0,visits:0,lastLogin:null,lastVisit:null}]));
+ const stats=new Map(activityUsers.map(u=>[u.user_id,{name:u.email||'No email available',logins:0,visits:0,lastLogin:null,lastVisit:null}]));
  const totals={today:0,week:0,month:0};
  for(const r of activityRows){
-  if(!stats.has(r.user_id))stats.set(r.user_id,{name:r.user_id,logins:0,visits:0,lastLogin:null,lastVisit:null});
+  if(!stats.has(r.user_id))stats.set(r.user_id,{name:'Unknown or former user',logins:0,visits:0,lastLogin:null,lastVisit:null});
   const item=stats.get(r.user_id), key=r.event_type==='login'?'lastLogin':'lastVisit';
   item[r.event_type==='login'?'logins':'visits']++;
   if(!item[key]||Date.parse(r.created_at)>Date.parse(item[key]))item[key]=r.created_at;
