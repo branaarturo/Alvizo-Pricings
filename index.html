@@ -260,6 +260,16 @@ table th, table td { text-align:center !important; vertical-align:middle; }
  .activity-table td:first-child {font-weight:700;color:var(--blue-dark);}
  .activity-table td:last-child {font-weight:400;}
 }
+/* Stock column: individual equipment only. */
+.stock-table td:nth-child(3){font-weight:800;color:#0f3f6e;font-variant-numeric:tabular-nums}
+.stock-table td.stock-high{color:#15803d}.stock-table td.stock-low{color:#a16207}.stock-table td.stock-zero{color:#b91c1c}.stock-table td.stock-unknown{color:#64748b}
+.stock-note{padding:10px 12px;text-align:center;font-size:12px;color:#475569;background:#f8fbff;border-bottom:1px solid #e2e8f0;overflow-wrap:anywhere}
+.stock-note.stock-warning{color:#92400e;background:#fffbeb}
+@media(max-width:640px){
+ .stock-table th:first-child{width:29%}.stock-table th:nth-child(2){width:36%}.stock-table th:nth-child(3){width:23%}.stock-table th:last-child{width:12%}
+ .stock-table td:nth-child(3){font-size:11px}.stock-table td:last-child{font-size:12px}.stock-table th:last-child{font-size:10px}
+ .stock-note{font-size:11px;padding:8px 5px}
+}
 </style>
 </head>
 <body>
@@ -329,6 +339,10 @@ const seer2 = {
 };
 let role=null, mode='equipment',brand='Goodman', selectedTonnage=2;
 let equipment=[], systemPrices=[], purchaseSources=[];
+let inventoryStock=new Map(), stockSyncedAt=null, stockError='', stockLoading=false, stockRequest=0, stockTimer=null;
+const stockKey=value=>String(value??'').trim().toUpperCase();
+const STOCK_REFRESH_MS=60000;
+const STOCK_STALE_MS=15*60*1000;
 const $ = id => document.getElementById(id);
 const money = value => Number(value).toLocaleString('en-US',{style:'currency',currency:'USD'});
 const escapeHTML = value => String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -343,6 +357,7 @@ function setMode(m){
  $('brandHeading').hidden=['plenum','activity'].includes(m);$('brandButtons').hidden=['plenum','activity'].includes(m);
  render();
  if(m==='activity')void loadActivity();
+ if(m==='individual')void loadStock();
 }
 function setBrand(b){ brand=b;brands.forEach(x=>$(x).classList.toggle('active',x===b));render() }
 function setTonnage(t){
@@ -369,12 +384,53 @@ function fullSetTable(){
  return `<div class="table-wrap"><table><thead><tr><th>Tons</th>${brand==='Lennox'?'<th>SEER2 Gas</th>':''}<th>Full System Price</th><th>Heat Pump Price</th></tr></thead><tbody>`+
  tons.map(t=>`<tr><td>${t}</td>${brand==='Lennox'?`<td>${seer2[t]?.gas??'—'}</td>`:''}<td>${full.has(t)?money(full.get(t)):'—'}</td><td>${hp.has(t)?money(hp.get(t)):'—'}</td></tr>`).join('')+'</tbody></table></div>';
 }
+function stockCell(model){
+ const value=inventoryStock.get(stockKey(model));
+ if(value==null)return '<td class="stock-unknown" title="No matching stock record">—</td>';
+ const cls=value<=0?'stock-zero':value<=2?'stock-low':'stock-high';
+ return `<td class="${cls}">${escapeHTML(value)}</td>`;
+}
+function stockNote(){
+ const date=stockSyncedAt?new Date(stockSyncedAt).toLocaleString('en-US',{timeZone:'America/Chicago',timeZoneName:'short'}):null;
+ const stale=stockSyncedAt&&Date.now()-Date.parse(stockSyncedAt)>STOCK_STALE_MS;
+ let message='Stock on Hand · Garland 110 + 115';
+ if(date)message+=' · Last sync: '+date;
+ if(stockError)message+=' · Stock refresh failed; '+(date?'showing last loaded quantities':'stock unavailable');
+ else if(!date)message+=stockLoading?' · Loading stock…':' · Stock not yet available';
+ if(stale)message+=' · Stock may be outdated';
+ return `<div class="stock-note${stockError||stale?' stock-warning':''}" role="status">${escapeHTML(message)} · — = unavailable / unmatched</div>`;
+}
+async function loadStock(){
+ if(!role||stockLoading)return;
+ const request=++stockRequest;stockLoading=true;
+ try{
+  const rows=[];
+  for(let offset=0;;offset+=500){
+   const result=await sb.from('inventory_stock').select('sku,total_stock,last_synced_at').order('sku').range(offset,offset+499);
+   if(request!==stockRequest||!role)return;
+   if(result.error)throw result.error;
+   const page=result.data??[];rows.push(...page);if(page.length<500)break;
+  }
+  if(!rows.length)throw new Error('No inventory snapshot returned');
+  const times=new Set(rows.map(r=>r.last_synced_at));
+  if(times.size!==1||!Number.isFinite(Date.parse(rows[0].last_synced_at)))throw new Error('Inventory snapshot changed during refresh');
+  const next=new Map(), duplicates=new Set();
+  for(const r of rows){
+   const key=stockKey(r.sku);
+   if(!key||r.total_stock==null||r.total_stock===''||!Number.isFinite(Number(r.total_stock)))continue;
+   if(next.has(key)||duplicates.has(key)){next.delete(key);duplicates.add(key);continue;}
+   next.set(key,Number(r.total_stock));
+  }
+  inventoryStock=next;stockSyncedAt=rows[0].last_synced_at;stockError='';
+ }catch(error){if(request===stockRequest){stockError=error.message||String(error);console.warn('Inventory stock:',stockError);}}
+ finally{if(request===stockRequest){stockLoading=false;if(role&&mode==='individual')render();}}
+}
 function individualTable(){
  const rows=equipment.filter(r=>r.brand===brand&&Number(r.tonnage)===selectedTonnage&&r.active!==false);
  if(!rows.length)return '<div class="note">No equipment entries for this tonnage.</div>';
  const heading=`${selectedTonnage} Ton - Individual ${escapeHTML(brand)} Equipment`;
- return `<div class="individual-summary">${heading}</div><div class="table-wrap"><table class="individual-table"><thead><tr><th>Equipment</th><th>Model</th><th>Price</th></tr></thead><tbody>`+
- rows.map(r=>`<tr><td>${escapeHTML(r.equipment_type)}</td><td>${escapeHTML(r.model)}</td><td>${money(r.sale_price)}</td></tr>`).join('')+'</tbody></table></div>';
+ return `<div class="individual-summary">${heading}</div>${stockNote()}<div class="table-wrap"><table class="individual-table stock-table"><thead><tr><th>Equipment</th><th>Model</th><th>Price</th><th>Stock</th></tr></thead><tbody>`+
+ rows.map(r=>`<tr><td>${escapeHTML(r.equipment_type)}</td><td>${escapeHTML(r.model)}</td><td>${money(r.sale_price)}</td>${stockCell(r.model)}</tr>`).join('')+'</tbody></table></div>';
 }
 // Financing images are served as separate static files for reliable deployment.
 const FINANCING_IMAGES = {en:'assets/financing-en.png',es:'assets/financing-es.png'};
@@ -463,13 +519,14 @@ async function loadPrices(){
  status(`Updated ${new Date().toLocaleTimeString()}`);render();
 }
 async function useSession(session, explicitLogin=false){
+ clearInterval(stockTimer);stockTimer=null;stockRequest++;stockLoading=false;inventoryStock=new Map();stockSyncedAt=null;stockError='';
  role=null;purchaseSources=[];activityRows=[];activityUsers=[];activityError='';activityLoading=false;activityRequest++;$('activityBtn').hidden=true;$('content').innerHTML='';$('purchaseBtn').hidden=true;shell(false);$('authError').textContent='';
  if(!session){$('password').value='';return}
  const staff=await sb.from('staff').select('role').eq('user_id',session.user.id).maybeSingle();
  if(staff.error||!['viewer','editor','admin'].includes(staff.data?.role)){
   await sb.auth.signOut();$('authError').textContent='This account is not authorized for Alvizo pricing.';return;
  }
- role=staff.data.role;$('activityBtn').hidden=role!=='admin';if(role!=='admin'&&['activity','purchase'].includes(mode))setMode('equipment');$('purchaseBtn').hidden=role!=='admin';$('signedIn').textContent=`${session.user.email} · ${role}`;shell(true);await Promise.all([loadPrices(),loadPurchases(),(async()=>{if(explicitLogin)await recordActivity('login');await recordActivity('visit');})()]);render();if(mode==='activity')void loadActivity();
+ role=staff.data.role;$('activityBtn').hidden=role!=='admin';if(role!=='admin'&&['activity','purchase'].includes(mode))setMode('equipment');$('purchaseBtn').hidden=role!=='admin';$('signedIn').textContent=`${session.user.email} · ${role}`;shell(true);stockTimer=setInterval(()=>{if(role&&mode==='individual'&&!document.hidden)void loadStock();},STOCK_REFRESH_MS);await Promise.all([loadPrices(),loadPurchases(),loadStock(),(async()=>{if(explicitLogin)await recordActivity('login');await recordActivity('visit');})()]);render();if(mode==='activity')void loadActivity();
 }
 $('loginForm').addEventListener('submit',async e=>{
  e.preventDefault();$('authError').textContent='';$('loginBtn').disabled=true;
@@ -479,7 +536,8 @@ $('loginForm').addEventListener('submit',async e=>{
  await useSession(data.session,true);
 });
 $('signOut').addEventListener('click',async()=>{await sb.auth.signOut();await useSession(null)});
-$('refreshPrices').addEventListener('click',async()=>{await Promise.all([loadPrices(),loadPurchases()]);render();});
+$('refreshPrices').addEventListener('click',async()=>{await Promise.all([loadPrices(),loadPurchases(),loadStock()]);render();});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&role&&mode==='individual')void loadStock();});
 (async()=>{const {data,error}=await sb.auth.getSession();if(error){$('authError').textContent=error.message;return}await useSession(data.session)})();
 // Purchase information is requested from Supabase only for the admin role. RLS additionally enforces access.
 </script>
