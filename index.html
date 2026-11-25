@@ -425,8 +425,24 @@ async function loadStock(){
  }catch(error){if(request===stockRequest){stockError=error.message||String(error);console.warn('Inventory stock:',stockError);}}
  finally{if(request===stockRequest){stockLoading=false;if(role&&mode==='individual')render();}}
 }
+// Fixed display order for Individual Equipment across all brands and tonnages.
+function equipmentDisplayRank(type){
+ const t=String(type??'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+ if(/\bheat\s*pumps?\b/.test(t))return 1;
+ if(/\bair\s*handlers?\b/.test(t))return 3;
+ if(/\bfurnaces?\b/.test(t))return 4;
+ if(/\b(?:evaporator|coils?)\b/.test(t))return 2;
+ if(/\b(?:condensers?|condensing|ac|a c|air conditioners?|cooling only)\b/.test(t))return 0;
+ return 5;
+}
+function compareIndividualEquipment(a,b){
+ return equipmentDisplayRank(a.equipment_type)-equipmentDisplayRank(b.equipment_type)
+  || String(a.equipment_type??'').localeCompare(String(b.equipment_type??''),'en',{numeric:true,sensitivity:'base'})
+  || String(a.model??'').localeCompare(String(b.model??''),'en',{numeric:true,sensitivity:'base'})
+  || String(a.id??'').localeCompare(String(b.id??''));
+}
 function individualTable(){
- const rows=equipment.filter(r=>r.brand===brand&&Number(r.tonnage)===selectedTonnage&&r.active!==false);
+ const rows=equipment.filter(r=>r.brand===brand&&Number(r.tonnage)===selectedTonnage&&r.active!==false).sort(compareIndividualEquipment);
  if(!rows.length)return '<div class="note">No equipment entries for this tonnage.</div>';
  const heading=`${selectedTonnage} Ton - Individual ${escapeHTML(brand)} Equipment`;
  return `<div class="individual-summary">${heading}</div>${stockNote()}<div class="table-wrap"><table class="individual-table stock-table"><thead><tr><th>Equipment</th><th>Model</th><th>Price</th><th>Stock</th></tr></thead><tbody>`+
